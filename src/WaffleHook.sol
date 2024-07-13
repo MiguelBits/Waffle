@@ -33,6 +33,4 @@ contract WaffleHook is CLBaseHook {
             })
         );
     }
-
-    
 }

@@ -11,8 +11,10 @@ import "./pool-cl/utils/CLTestUtils.sol";
 import {CLPoolParametersHelper} from "@pancakeswap/v4-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
 import {PoolIdLibrary} from "@pancakeswap/v4-core/src/types/PoolId.sol";
 import {ICLSwapRouterBase} from "@pancakeswap/v4-periphery/src/pool-cl/interfaces/ICLSwapRouterBase.sol";
+import {PoolId} from "@pancakeswap/v4-core/src/types/PoolId.sol";
 
 import {WaffleHook} from "../src/WaffleHook.sol";
+import {WaffleLendingManager} from "../src/WaffleLendingManager.sol";
 
 contract WaffleHookTest is Test, CLTestUtils {
     using PoolIdLibrary for PoolKey;
@@ -29,32 +31,21 @@ contract WaffleHookTest is Test, CLTestUtils {
     PoolKey key;
     NonfungiblePositionManager pancake_periphery;
 
+    Currency currency0;
+    Currency currency1;
+
+    WaffleLendingManager lendingManager;
 
     function setUp() public {
         poolManager = CLPoolManager(0x97e09cD0E079CeeECBb799834959e3dC8e4ec31A); //sepolia
         pancake_periphery = NonfungiblePositionManager(payable(0xf8d44CC59B87b7649F7BC37a8F1C86B2f3a92876)); //sepolia
 
         //set currency0 and currency1
-        Currency currency0 = Currency.wrap(eth);
-        Currency currency1 = Currency.wrap(usdc);
+        currency0 = Currency.wrap(eth);
+        currency1 = Currency.wrap(usdc);
 
-        //& create the hook
-        hook = new WaffleHook(poolManager);
-
-        // create the pool key
-        key = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            hooks: hook,
-            poolManager: poolManager,
-            fee: uint24(3000), // 0.3% fee
-            // tickSpacing: 10
-            parameters: bytes32(uint256(hook.getHooksRegistrationBitmap())).setTickSpacing(10)
-        });
-
-        // Create the pool
-        // initialize pool for eth/usdc
-        poolManager.initialize(key, 1419367377903407086326843728793701, new bytes(0));
+        // create the lending manager
+        lendingManager = new WaffleLendingManager(address(poolManager), address(pancake_periphery));
     }
 
     function test_swapBorrow() public {
@@ -65,4 +56,54 @@ contract WaffleHookTest is Test, CLTestUtils {
         // check that the hook minted stablecoin
     }
 
+    function test_getPrice() public view{
+        uint256 tokenId = 5;
+        (
+            ,
+            ,
+            PoolId poolId,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            
+        ) = pancake_periphery.positions(tokenId);
+        
+        (uint256 price, ) = lendingManager.getCurrentPrice(poolId);
+        console.log("price", price);
+        price = price * 1e12;
+        console.log("weth amount", price * 2e18 / 1e18);
+    }
+
+    function test_lendLong() public {
+        lendingManager.depositLiquidityForLending(key, 1e18, 1);
+        uint256 tokenId = 5;
+        (
+            ,
+            ,
+            PoolId poolId,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            
+        ) = pancake_periphery.positions(tokenId);
+        
+        lendingManager.lendLong(poolId, 1e18, 2);
+        uint256 debt = lendingManager.debtAccrued(msg.sender);
+        console.log("debt", debt);
+
+    }
 }

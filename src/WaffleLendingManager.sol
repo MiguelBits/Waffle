@@ -24,8 +24,15 @@ contract WaffleLendingManager is LiquidityERC20 {
 
     int24 bps = 10000;
     int24 _rangeCover = 20 * bps; //20%
+    uint256 public INTEREST_RATE = 0.00001 ether; //0.00001% per second
+
+    struct Debt {
+        uint256 amount;
+        uint256 startTime;
+    }
 
     mapping(PoolId poolId => uint256 vaultTokenId) public vaultTokenIds;
+    mapping(address user => Debt) public debts;
 
     constructor(address _poolManager, address _nfp) LiquidityERC20("WaffleLendingManager", "WLM") {
         pancake_periphery = NonfungiblePositionManager(payable(_nfp));
@@ -82,15 +89,50 @@ contract WaffleLendingManager is LiquidityERC20 {
         _burn(msg.sender, amount);
     }
 
-
-    function lendLong(PoolId poolId, uint256 _amountCollateral, uint256 _leverage/*, bool _long*/) external {
+    function lendLong(PoolId poolId, uint256 _amountCollateral, uint256 _leverage) external {
         require(vaultTokenIds[poolId] != 0, "Vault token does not exist");
         uint256 vaultTokenId = vaultTokenIds[poolId];
 
-        require(_leverage > 1.1 ether, "Leverage must be greater than 1.1");
-        require(_leverage < 2 ether, "Leverage must be less than 2");
+        //require(_leverage > 1.1 ether, "Leverage must be greater than 1.1");
+        //require(_leverage < 2 ether, "Leverage must be less than 2");
 
+        (
+            ,
+            ,
+            ,
+            Currency currency0,
+            Currency currency1,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+        ) = pancake_periphery.positions(vaultTokenId);
 
+        //transfer the collateral to the contract
+        ERC20(Currency.unwrap(currency0)).transferFrom(msg.sender, address(this), _amountCollateral);
+
+        (uint256 price, uint160 sqrtPriceX96) = getCurrentPrice(poolId);
+        //calculate the amount of token1 to borrow
+        price = price * 1e12;
+        uint256 amountToLend = price * _amountCollateral * 2 / 1e18; //TODO , its fixed TO 2 LEVERAGE
+
+        Debt memory debt = Debt({
+            amount: amountToLend,
+            startTime: block.timestamp
+        });
+        debts[msg.sender] = debt;
+    }
+
+    function debtAccrued(address _user) external view returns (uint256) {
+        Debt memory debt = debts[_user];
+        //uint256 timeElapsed = block.timestamp - debt.startTime;
+        //calculate interest
+        uint256 interest = debt.amount * INTEREST_RATE / 1e18;
+        return interest;
     }
 
     function repayLoan(address _vaultToken, uint256 _amount) external {
@@ -169,10 +211,9 @@ contract WaffleLendingManager is LiquidityERC20 {
     function getCurrentPrice(PoolId poolId) public view returns (uint256,uint160) {
         (uint160 sqrtPriceX96, , ,) = poolManager.getSlot0(poolId);
         
-        uint256 priceX96 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
-        uint256 price = FullMath.mulDiv(priceX96, 1e18, 1 << 192);
+        uint256 price = (sqrtPriceX96 / 2**96) **2;
         
-        return (price,sqrtPriceX96);
+        return (price*10,sqrtPriceX96);
     }
 
     function calculateWithdrawableLiquidity(
