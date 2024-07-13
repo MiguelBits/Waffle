@@ -1,0 +1,14 @@
+{
+    "weth": "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
+    "vault": "0x9ddc29733279C31cAb29616Ebf3EB37E63Cc9157",
+    "clPoolManager": "0x97e09cD0E079CeeECBb799834959e3dC8e4ec31A",
+    "binPoolManager": "0x85cD8228f397a6a52402776A8A8B720e85622C18",
+    "nonFungibleTokenPositionDescriptorOffChain": "0x064B71Ce08b9519E71036e5b9aBBCB0e07A2a825",
+    "NFTPositionDescriptorProxyAdmin": "0xc82fFd665DaB9Dce94e1E3D45f94C2F759686c56",
+    "nonFungiblePositionManager": "0xf8d44CC59B87b7649F7BC37a8F1C86B2f3a92876",
+    "clSwapRouter": "0x0E63C6d991F4a0D152d1f35D6f1f5E6ed80f1436",
+    "binFungiblePositionManager": "0x31A532ab3C858AbB5b90D08D076D70cAa974E0ab",
+    "binSwapRouter": "0x3d5fc75b5db8fa13cfAc2D3F97363C0C1ad73060",
+    "CLQuoter": "0x5F876e1c7712B9E378fe0c6A4f6fC9c13c8E3332",
+    "binQuoter": "0x372bB06da2ecDeb9382371b643167CcF74479e93"
+}
