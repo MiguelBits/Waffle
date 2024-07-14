@@ -16,13 +16,16 @@ import {LiquidityAmounts} from "@pancakeswap/v4-core/test/pool-cl/helpers/Liquid
 import {LiquidityERC20} from "./LiquidityERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract WaffleLendingManager is LiquidityERC20 {
+import "forge-std/Test.sol";
+
+contract WaffleLendingManager is LiquidityERC20, Test {
     using PoolIdLibrary for PoolKey;
 
     NonfungiblePositionManager pancake_periphery;
     CLPoolManager poolManager;
+    address HOOK;
 
-    int24 bps = 10000;
+    int24 bps = 100;
     int24 _rangeCover = 20 * bps; //20%
     uint256 public INTEREST_RATE = 0.00001 ether; //0.00001% per second
 
@@ -39,12 +42,33 @@ contract WaffleLendingManager is LiquidityERC20 {
         poolManager = CLPoolManager(_poolManager);
     }
 
-    function depositLiquidityForLending(PoolKey memory key, uint256 amount0, uint256 amount1) external {
+    function setHook(address _hook) external {
+        HOOK = _hook;
+    }
+
+    modifier onlyHook() {
+        require(msg.sender == HOOK, "Only hook can call this function");
+        _;
+    }
+
+    function depositLiquidityForLending(PoolKey memory key, uint256 amount0, uint256 amount1, bool isLong) external {
         PoolId poolId = key.toId();
         (, int24 tick, ,) = poolManager.getSlot0(poolId);
-        //get the tick spacing, + _rangeCover% or - _rangeCover%
-        int24 upperBound = tick + (_rangeCover * tick) / bps;
-        int24 lowerBound = tick - (_rangeCover * tick) / bps;
+
+        //get the tick spacing, + _rangeCover% or - _rangeCover
+        int24 upperBound;
+        int24 lowerBound;
+        if (isLong) {
+            upperBound = 20_000;
+            lowerBound = 19_990;
+            amount0 = 0;
+        } else {
+            upperBound = 19_550;
+            lowerBound = 19_500;
+            amount1 = 0;
+        }
+        console.log(upperBound);
+        console.log(lowerBound);
 
         uint128 liquidity = _addLiquidity(key, amount0, amount1, lowerBound, upperBound, tick);
 
@@ -89,7 +113,8 @@ contract WaffleLendingManager is LiquidityERC20 {
         _burn(msg.sender, amount);
     }
 
-    function lendLong(PoolId poolId, uint256 _amountCollateral, uint256 _leverage) external {
+    function lendLong(PoolKey memory key, uint256 _amountCollateral, uint256 _leverage) external onlyHook {
+        PoolId poolId = key.toId();
         require(vaultTokenIds[poolId] != 0, "Vault token does not exist");
         uint256 vaultTokenId = vaultTokenIds[poolId];
 
@@ -113,7 +138,7 @@ contract WaffleLendingManager is LiquidityERC20 {
         ) = pancake_periphery.positions(vaultTokenId);
 
         //transfer the collateral to the contract
-        ERC20(Currency.unwrap(currency0)).transferFrom(msg.sender, address(this), _amountCollateral);
+        ERC20(Currency.unwrap(currency1)).transferFrom(msg.sender, address(this), _amountCollateral);
 
         (uint256 price, uint160 sqrtPriceX96) = getCurrentPrice(poolId);
         //calculate the amount of token1 to borrow
@@ -125,6 +150,22 @@ contract WaffleLendingManager is LiquidityERC20 {
             startTime: block.timestamp
         });
         debts[msg.sender] = debt;
+
+        uint128 liquidity = calculateWithdrawableLiquidity(vaultTokenId, amountToLend, price, sqrtPriceX96);
+
+        //decrease the liquidity and send to the user
+        INonfungiblePositionManager.DecreaseLiquidityParams memory params = INonfungiblePositionManager
+        .DecreaseLiquidityParams({
+            tokenId: vaultTokenId,
+            liquidity: liquidity,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: type(uint256).max
+        });
+        
+        (uint256 amount0, uint256 amount1) = pancake_periphery.decreaseLiquidity(params);
+        ERC20(Currency.unwrap(currency0)).transfer(msg.sender, amount0);
+        ERC20(Currency.unwrap(currency1)).transfer(msg.sender, amount1);
     }
 
     function debtAccrued(address _user) external view returns (uint256) {
@@ -137,6 +178,7 @@ contract WaffleLendingManager is LiquidityERC20 {
 
     function repayLoan(address _vaultToken, uint256 _amount) external {
         //deposit the lent amount in the liquidity pool + interest + fees
+
     }
 
     function liquidateLoan(address _vaultToken, uint256 _amount) external {
@@ -165,7 +207,7 @@ contract WaffleLendingManager is LiquidityERC20 {
         if(vaultTokenIds[poolId] == 0) {
             //approve token0 and token1
             _approveCurrencies(key);
-
+            console.log("HERE");
             (uint256 tokenId, uint128 _liquidity, , ) = pancake_periphery.mint(mintParams);
             vaultTokenIds[poolId] = tokenId;
             liquidity = _liquidity;
@@ -195,16 +237,15 @@ contract WaffleLendingManager is LiquidityERC20 {
                 }));
                 liquidity = _liquidity;
             }
-        }
-        
+        }   
     }
 
     function _approveCurrencies(PoolKey memory key) internal {
         Currency currency0 = key.currency0;
         Currency currency1 = key.currency1;
 
-        IVaultToken(Currency.unwrap(currency0)).approve(address(pancake_periphery), currency0, type(uint256).max);
-        IVaultToken(Currency.unwrap(currency1)).approve(address(pancake_periphery), currency1, type(uint256).max);
+        ERC20(Currency.unwrap(currency0)).approve(address(pancake_periphery), type(uint256).max);
+        ERC20(Currency.unwrap(currency1)).approve(address(pancake_periphery), type(uint256).max);
     }
     
     //L = sqrt(X*Y)

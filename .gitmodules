@@ -16,3 +16,6 @@
 [submodule "lib/erc6551"]
 	path = lib/erc6551
 	url = https://github.com/erc6551/reference
+[submodule "lib/Options-Margin"]
+	path = lib/Options-Margin
+	url = https://github.com/MiguelBits/Options-Margin

@@ -15,8 +15,11 @@ import {PoolIdLibrary} from "@pancakeswap/v4-core/src/types/PoolId.sol";
 import {ICLSwapRouterBase} from "@pancakeswap/v4-periphery/src/pool-cl/interfaces/ICLSwapRouterBase.sol";
 import {CLPoolManager} from "@pancakeswap/v4-core/src/pool-cl/CLPoolManager.sol";
 import {SortTokens} from "@pancakeswap/v4-core/test/helpers/SortTokens.sol";
+import {INonfungiblePositionManager} from
+    "@pancakeswap/v4-periphery/src/pool-cl/interfaces/INonfungiblePositionManager.sol";
 
 import {WaffleHook} from "../src/WaffleHook.sol";
+import {WaffleLendingManager} from "../src/WaffleLendingManager.sol";
 
 contract CreatePoolScript is Script {
     using PoolIdLibrary for PoolKey;
@@ -31,13 +34,13 @@ contract CreatePoolScript is Script {
     MockERC20 token0 = MockERC20(eth); //TODO
     MockERC20 token1 = MockERC20(usdc); //TODO
     PoolKey key;
-    //NonfungiblePositionManager pancake_periphery;
+    INonfungiblePositionManager pancake_periphery;
 
     function setUp() public {}
 
     function run() public {
         CLPoolManager poolManager = CLPoolManager(0x97e09cD0E079CeeECBb799834959e3dC8e4ec31A); //sepolia
-        //pancake_periphery = NonfungiblePositionManager(0xf8d44CC59B87b7649F7BC37a8F1C86B2f3a92876); //sepolia
+        pancake_periphery = INonfungiblePositionManager(0xf8d44CC59B87b7649F7BC37a8F1C86B2f3a92876); //sepolia
 
         //set currency0 and currency1
         Currency currency0 = Currency.wrap(eth);
@@ -45,8 +48,10 @@ contract CreatePoolScript is Script {
 
         vm.startBroadcast();
 
+        WaffleLendingManager lendingManager = new WaffleLendingManager(address(poolManager), address(pancake_periphery));
+
         //& create the hook
-        hook = new WaffleHook(poolManager);
+        hook = new WaffleHook(poolManager, lendingManager);
 
         // create the pool key
         key = PoolKey({
