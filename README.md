@@ -14,3 +14,6 @@
 ## Description
 
 This repository contains example counter hook for both CL and Bin pool types. 
+
+## Sepolia
+forge t --fork-url $TESTNET_RPC -vv --match-test test_lendLong

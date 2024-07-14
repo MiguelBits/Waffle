@@ -85,6 +85,9 @@ contract WaffleHookTest is Test, CLTestUtils {
 
         MockERC20(Currency.unwrap(currency0)).mint(user, 3100e6);
         MockERC20(Currency.unwrap(currency1)).mint(user, 1e18);
+
+        MockERC20(Currency.unwrap(currency0)).mint(address(waffleHook), 3100e6);
+        MockERC20(Currency.unwrap(currency1)).mint(address(waffleHook), 1e18);
     }
 
     function test_swapBorrow() public {
@@ -124,11 +127,13 @@ contract WaffleHookTest is Test, CLTestUtils {
     function test_lendLong() public {
         uint256 amount = 1e18;
 
-        console.log("lendLong");
+        console.log("lendLong1");
 
         vm.startBroadcast(address(waffleHook));
 
         lendingManager.depositLiquidityForLending(key, 1e18, 1e6, true);
+
+        console.log("lendLong2");
 
         MockERC20(Currency.unwrap(currency1)).approve(address(lendingManager), type(uint256).max);
         lendingManager.lendLong(key, amount, 2);

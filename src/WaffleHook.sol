@@ -72,6 +72,9 @@ contract WaffleHook is CLBaseHook {
         ICLPoolManager.ModifyLiquidityParams calldata _liqParams,
         bytes calldata _data
     ) external override returns (bytes4) {
+        if(msg.sender == address(manager)) {
+            return this.beforeAddLiquidity.selector;
+        }
 
         (bool isLong, uint256 _amountCollateral) = abi.decode(_data, (bool, uint256));
         
@@ -90,6 +93,10 @@ contract WaffleHook is CLBaseHook {
         BalanceDelta _delta,
         bytes calldata _data
     ) external override returns (bytes4, BalanceDelta) {
+        if(msg.sender == address(manager)) {
+            return (this.beforeAddLiquidity.selector, toBalanceDelta(0,0));
+        }
+
         PoolId poolId = key.toId();
         
         (bool isLong, uint256 _amountCollateral) = abi.decode(_data, (bool, uint256));

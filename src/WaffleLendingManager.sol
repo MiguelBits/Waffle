@@ -162,10 +162,11 @@ contract WaffleLendingManager is LiquidityERC20, Test {
             amount1Min: 0,
             deadline: type(uint256).max
         });
-        
+        /*
         (uint256 amount0, uint256 amount1) = pancake_periphery.decreaseLiquidity(params);
         ERC20(Currency.unwrap(currency0)).transfer(msg.sender, amount0);
         ERC20(Currency.unwrap(currency1)).transfer(msg.sender, amount1);
+        */
     }
 
     function debtAccrued(address _user) external view returns (uint256) {
